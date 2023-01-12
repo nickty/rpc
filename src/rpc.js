@@ -5,7 +5,7 @@ let amqplibConnection = null;
 
 const getChannel = async () => {
   if (amqplibConnection === null) {
-    amqplibConnection = await amqplib.connect("ammqp://localhost");
+    amqplibConnection = await amqplib.connect("amqp://localhost");
   }
 
   return await amqplibConnection.createChannel();
@@ -26,12 +26,13 @@ const RPCObserver = async (RPC_QUEUE_NAME, fakeResponse) => {
         const payload = JSON.parse(msg.content.toString());
         const response = { fakeResponse, payload }; //call fake db operation
         channel.sendToQueue(
-          msg.propertise.replayTo,
+          msg.propertise.replyTo,
           Buffer.from(JSON.stringify(response)),
           {
             correlation: msg.propertise.correlationId,
           }
         );
+        channel.ack(msg);
       }
     },
     {
@@ -49,7 +50,7 @@ const requestData = async (RPC_QUEUE_NAME, requestPayload, uuid) => {
     RPC_QUEUE_NAME,
     Buffer.from(JSON.stringify(requestData)),
     {
-      replayTo: q.queue,
+      replyTo: q.queue,
       correlationId: uuid,
     }
   );
@@ -73,7 +74,7 @@ const requestData = async (RPC_QUEUE_NAME, requestPayload, uuid) => {
 
 const RPCRequest = async (RPC_QUEUE_NAME, requestPayload) => {
   const uuid = uuid4(); //correlation id
-  return requestData(RPC_QUEUE_NAME, requestPayload, uuid);
+  return await requestData(RPC_QUEUE_NAME, requestPayload, uuid);
 };
 
 module.exports = {
